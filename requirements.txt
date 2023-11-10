@@ -1,2 +1,2 @@
-pyprogram
-tgcrypto
+pip install --upgrade https://github.com/praw-dev/praw/archive/master.zip
+pip install TIME-python --upgrade.
