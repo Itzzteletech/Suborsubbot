@@ -1,2 +1,2 @@
-pip install --upgrade https://github.com/praw-dev/praw/archive/master.zip
-pip install TIME-python --upgrade.
+praw==7.4.0
+requests==2.26.0
