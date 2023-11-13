@@ -1,8 +1,8 @@
 import praw
 import time
 import requests
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -14,38 +14,6 @@ reddit_username = 'your_reddit_username'
 reddit_password = 'your_reddit_password'
 reddit_user_agent = 'your_reddit_user_agent'
 
-# Connect to Reddit
-reddit = praw.Reddit(client_id=reddit_client_id,
-                     client_secret=reddit_client_secret,
-                     username=reddit_username,
-                     password=reddit_password,
-                     user_agent=reddit_user_agent)
-
-# Subreddit to monitor
-subreddit_name = 'your_subreddit'
-subreddit = reddit.subreddit(subreddit_name)
-
-# Phrase to look for in comments
-target_phrase = 'your_target_phrase'
-
-# Placeholder for a simple database or record-keeping mechanism
-subscribed_users = set()
-
-# Function to check if a user is subscribed
-def user_is_subscribed(user):
-    # Implement your logic to check if the user has subscribed to another user's channel
-    # Example: You might want to use the YouTube API for this verification
-    # Replace 'your_api_key' with your actual YouTube API key
-    api_key = 'your_api_key'
-    channel_id = 'user_channel_id_to_check'
-    check_subscription_url = f'https://www.googleapis.com/youtube/v3/subscriptions?part=id&channelId={channel_id}&key={api_key}'
-
-    # Make a request to the YouTube API
-    response = requests.get(check_subscription_url)
-    
-    # Check if the user is subscribed based on the API response
-    return response.status_code == 200  # Adjust this based on your API response
-
 # Telegram Bot Token
 TELEGRAM_TOKEN = 'your_telegram_token'
 
@@ -53,65 +21,114 @@ TELEGRAM_TOKEN = 'your_telegram_token'
 YOUTUBE_API_KEY = 'your_youtube_api_key'
 CHANNEL_ID = 'your_youtube_channel_id'
 
+# Your Reddit username (owner)
+OWNER_REDDIT_USERNAME = 'your_reddit_username'
+
+# Set up Reddit
+reddit = praw.Reddit(client_id=reddit_client_id,
+                     client_secret=reddit_client_secret,
+                     username=reddit_username,
+                     password=reddit_password,
+                     user_agent=reddit_user_agent)
+
 # Set up YouTube API
 youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
 
-def start(update: Update, context: CallbackContext):
-    update.message.reply_text("To use this bot, please subscribe to our YouTube channel first.")
+# Database to store user-submitted YouTube channels
+user_channels = {}
 
+# Function to check if a user is the owner (you)
+def is_owner(username):
+    return username.lower() == OWNER_REDDIT_USERNAME.lower()
+
+# Function to check if a user is subscribed
+def user_is_subscribed(user_id):
+    try:
+        # Call the YouTube API to check subscription status
+        subscriptions = youtube.subscriptions().list(part='snippet', channelId=CHANNEL_ID, mine=True).execute()
+        subscribed_channels = [item['snippet']['resourceId']['channelId'] for item in subscriptions.get('items', [])]
+
+        return CHANNEL_ID in subscribed_channels
+
+    except HttpError as e:
+        print(f"Error checking YouTube subscription: {e}")
+        return False
+
+# Telegram command handler - start
+def start(update: Update, context: CallbackContext):
+    update.message.reply_text("Welcome! To check your subscription status, use /check_subscription. To submit your YouTube channel link, use /submit_channel.")
+
+# Telegram command handler - check_subscription
 def check_subscription(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
+    reddit_username = update.message.from_user.username
 
-    # Check YouTube subscription status here using the YouTube API
-    is_subscribed = user_is_subscribed(user_id)
-
-    if is_subscribed:
-        update.message.reply_text("Thank you for subscribing! You can now use the bot.")
+    if is_owner(reddit_username):
+        update.message.reply_text("You are the owner. No need to check subscription.")
     else:
-        update.message.reply_text("Please subscribe to our YouTube channel first.")
+        # Check YouTube subscription status
+        is_subscribed = user_is_subscribed(user_id)
 
-def run_bot():
-    print(f'Bot is monitoring r/{subreddit_name}')
+        if is_subscribed:
+            update.message.reply_text("Thank you for subscribing! You can now use the bot.")
+        else:
+            update.message.reply_text("Please subscribe to our YouTube channel first.")
 
-    for comment in subreddit.stream.comments(skip_existing=True):
-        if target_phrase in comment.body:
-            # Check if the user is already a subscriber
-            if not user_is_subscribed(comment.author):
-                # If not subscribed, prompt the user to subscribe to another user's channel
-                comment.reply("To use this bot, subscribe to another user's channel, and another user will subscribe to yours.")
-                
-                # Log the comment ID to avoid processing it again
-                with open('processed_comments.txt', 'a') as file:
-                    file.write(comment.id + '\n')
+# Telegram command handler - submit_channel
+def submit_channel(update: Update, context: CallbackContext):
+    user_id = update.message.from_user.id
+    reddit_username = update.message.from_user.username
 
-                # Wait for the user to subscribe and update the subscribed users set
-                while not user_is_subscribed(comment.author):
-                    print(f"{comment.author} hasn't subscribed yet. Waiting...")
-                    time.sleep(60)  # Wait for 60 seconds before checking again
+    if is_owner(reddit_username):
+        update.message.reply_text("You are the owner. No need to submit a channel.")
+    else:
+        update.message.reply_text("Please provide your YouTube channel link.")
 
-                # Acknowledge and continue
-                print(f"{comment.author} has subscribed. Continuing bot operations.")
-                subscribed_users.add(comment.author)
+        # Save the state to identify user and store their YouTube channel link
+        context.user_data['submitting_channel'] = True
 
-def main():
-    updater = Updater(token=TELEGRAM_TOKEN, use_context=True)
-    dp = updater.dispatcher
+# Telegram message handler - handle submitted channel link
+def handle_channel_link(update: Update, context: CallbackContext):
+    user_id = update.message.from_user.id
+    reddit_username = update.message.from_user.username
 
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("check_subscription", check_subscription))
-    
-    updater.start_polling()
+    if 'submitting_channel' in context.user_data:
+        channel_link = update.message.text
 
-    # Run the Reddit bot in parallel
-    while True:
-        try:
-            run_bot()
-        except Exception as e:
-            print(f'An error occurred: {e}')
-            # Sleep for a while before retrying
-            time.sleep(60)
+        # Store the submitted channel link in the database
+        user_channels[user_id] = channel_link
 
-    updater.idle()
+        update.message.reply_text("Thank you! Your channel link has been recorded.")
+        del context.user_data['submitting_channel']
+    else:
+        update.message.reply_text("Sorry, I wasn't expecting a channel link at this time. If you want to submit your channel, use /submit_channel.")
 
-if __name__ == '__main__':
-    main()
+# Telegram command handler - subscribe
+def subscribe(update: Update, context: CallbackContext):
+    user_id = update.message.from_user.id
+    reddit_username = update.message.from_user.username
+
+    if is_owner(reddit_username):
+        update.message.reply_text("You are the owner. No need to subscribe to others.")
+    else:
+        # Get a list of other users' channels (excluding the user and already subscribed channels)
+        other_channels = {u: c for u, c in user_channels.items() if u != user_id and not user_is_subscribed(u)}
+
+        if other_channels:
+            # Create an inline keyboard with buttons for each channel
+            keyboard = [[InlineKeyboardButton(f'{u}\'s Channel', url=c)] for u, c in other_channels.items()]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+
+            update.message.reply_text("Choose a channel to subscribe:", reply_markup=reply_markup)
+        else:
+            update.message.reply_text("No available channels to subscribe at the moment.")
+# Telegram callback query handler - handle inline button clicks
+def button_click(update: Update, context: CallbackContext):
+    user_id = update.callback_query.from_user.id
+    query = update.callback_query
+
+    # Extract the user ID and channel link from the button text
+    user_to_subscribe = int(query.data.split(':')[0])
+    channel_to_subscribe = user_channels[user_to_subscribe]
+
+    # Subscribe to the selected
