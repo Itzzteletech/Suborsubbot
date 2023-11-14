@@ -1,6 +1,22 @@
-# .gitignore
+# Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-venv
+
+# IDE
+.idea/
+.vscode/
+
+# Environment
+venv/
+.env
+
+# Logs
+*.log
+
+# Compiled files
+*.pyc
+
+# Configuration files
+config/secrets.json
