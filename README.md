@@ -1,13 +1,24 @@
 # Suborsubbot
 
-Hey there I'm suborsubbot. I can help you to increase your YouTube channel Subscriptions
+Hey there 👋 user.Firstname I'm a Suborsubbot. I can help you to increase your all YouTube channel subscriptions 😎
 
-## Setup
-1. Install dependencies: `pip install -r requirements.txt`
-2. Replace placeholders in `bot.py` with your details.
-3. Run the bot: `python main.py`
+## Table of Contents
 
-##Deploy to Heroku 🗳️
-Press the following button to Deploy to Heroku
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+- [Usage](#usage)
+- [Contributing](#contributing)
+- [License](#license)
 
-[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/Itzzteletech/Suborsubbot)
+## Getting Started
+
+Brief instructions on how to set up and run your bot.
+
+### Prerequisites
+
+List any prerequisites or dependencies required to run the bot.
+
+```bash
+# Example:
+pip install -r requirements.txt
