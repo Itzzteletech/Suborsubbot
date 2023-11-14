@@ -1,1 +1,25 @@
-
+{
+  "name": "Suborsubbot",
+  "description": "Hey there 👋 user.first_name I'm a suborsubbot. I can help you to increase your YouTube channel Subscriptions",
+  "repository": "https://github.com/ItzzTeletech/Suborsubbot",
+  "image": "heroku/python",
+  "addons": [
+    "heroku-postgresql"
+    // Add other Heroku addons if needed
+  ],
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "scripts": {
+    "postdeploy": "python bot.py"
+  },
+  "env": {
+    "TELEGRAM_TOKEN": {
+      "description": "6401687982:AAFb01-nccjXKa0dAmySwZ3YsDaZG3C6xEA",
+      "required": true
+    },
+    // Add other environment variables
+  }
+  }
