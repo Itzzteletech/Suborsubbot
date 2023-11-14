@@ -5,7 +5,7 @@
   "image": "heroku/python",
   "addons": [
     "heroku-postgresql"
-    // Add other Heroku addons if needed
+    
   ],
   "buildpacks": [
     {
@@ -20,6 +20,6 @@
       "description": "6401687982:AAFb01-nccjXKa0dAmySwZ3YsDaZG3C6xEA",
       "required": true
     },
-    // Add other environment variables
+    
   }
   }
