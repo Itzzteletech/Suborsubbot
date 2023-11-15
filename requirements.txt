@@ -1,8 +1,2 @@
-# requirements.txt
-
-praw==7.4.0
-python-telegram-bot==19.12
-google-auth-oauthlib==0.4.4
-google-auth==1.35.0
-google-api-python-client==2.23.0
+python-telegram-bot==13.7
 requests==2.26.0
