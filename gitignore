@@ -4,19 +4,57 @@ __pycache__/
 *.pyo
 *.pyd
 
-# IDE
-.idea/
-.vscode/
-
-# Environment
+# Virtual Environment
 venv/
-.env
+env/
+*.env/
 
-# Logs
+# IDEs
+.vscode/
+.idea/
+
+# Dependency directories
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Distribution / packaging
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+*.sqlite
 *.log
 
-# Compiled files
-*.pyc
+# Environment
+.env
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
 
-# Configuration files
-config/secrets.json
+# Docker
+Dockerfile
+docker-compose.yml
+
+# Tests
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+.pytest_cache/
+
+# Others
+*.bak
+*.swp
+*~
+*.tmp
+*.sublime-workspace
+*.sublime-project
+*.sublime-settings
+*.sublime-keyma
