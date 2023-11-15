@@ -1,0 +1,11 @@
+services:
+  - name: your-telegram-bot
+    env:
+      - key: YOUR_BOT_TOKEN
+        from: secret
+      - key: YOUR_OTHER_ENV_VARIABLE
+        value: "your-value"
+    buildCommand: python bot.py
+    source: https://github.com/your-username/your-private-repo.git
+    branch: main
+    type: pytho
