@@ -1,142 +1,180 @@
-import praw
+import logging
+import sqlite3
 import time
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
+from datetime import datetime, timedelta
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import Updater, CommandHandler, CallbackContext, ConversationHandler, CallbackQueryHandler, MessageHandler, Filters
 
-# ... (Other imports)
+# Enable logging
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Set up Reddit and YouTube API (same as before)
+# Replace 'YOUR_BOT_TOKEN' with your actual Telegram Bot API token
+# You can obtain this token by talking to the BotFather on Telegram.
+TOKEN = 'YOUR_BOT_TOKEN'
+OWNER_ID = 123456789  # Replace with your Telegram user ID
 
-# Database to store user-submitted YouTube channels and confirmation status
-user_channels = {}
+# Connect to SQLite database
+conn = sqlite3.connect('subscriptions.db')
+cursor = conn.cursor()
 
-# Set up a timestamp to track the last subscription time
-last_subscription_time = {}
+# Create a table to store subscriptions
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS subscriptions (
+        user_id INTEGER,
+        channel_link TEXT
+    )
+''')
+conn.commit()
 
-# Function to check if a user is the owner (you)
-def is_owner(username):
-    return username.lower() == OWNER_REDDIT_USERNAME.lower()
+# Dictionary to store last subscribe time for each user
+last_subscribe_time = {}
 
-# Function to check if a user is subscribed
-def user_is_subscribed(user_id):
-    try:
-        # Call the YouTube API to check subscription status
-        subscriptions = youtube.subscriptions().list(part='snippet', channelId=CHANNEL_ID, mine=True).execute()
-        subscribed_channels = [item['snippet']['resourceId']['channelId'] for item in subscriptions.get('items', [])]
+# Set to store channels the bot is subscribed to
+bot_subscriptions = set()
 
-        return CHANNEL_ID in subscribed_channels
+# Dictionary to store blocked users and their unsubscription timestamp
+blocked_users = {}
 
-    except HttpError as e:
-        print(f"Error checking YouTube subscription: {e}")
-        return False
+# Bot states
+START, SUBSCRIBE, JOIN_CHANNEL, JOIN_GROUP = range(4)
 
-# Telegram command handler - start
-def start(update: Update, context: CallbackContext):
-    update.message.reply_text("Welcome! To check your subscription status, use /check_subscription. To submit your YouTube channel link, use /submit_channel.")
-
-# Telegram command handler - check_subscription
-def check_subscription(update: Update, context: CallbackContext):
+# Handler for /start command
+def start(update: Update, context: CallbackContext) -> int:
     user_id = update.message.from_user.id
-    reddit_username = update.message.from_user.username
+    logger.info(f"User {user_id} started the conversation.")
+    
+    # Check if the user is the owner
+    if user_id == OWNER_ID:
+        update.message.reply_text("You are the owner. You cannot subscribe.")
+        return ConversationHandler.END
+    
+    # Check if the bot is already subscribed
+    if user_id not in bot_subscriptions:
+        update.message.reply_text("Please subscribe to the bot first before starting.")
+        return ConversationHandler.END
+    
+    update.message.reply_text(
+        "Welcome to the bot! To continue, you need to subscribe to my YouTube channel and join my Telegram channel and group.\n"
+        "Click the buttons below to perform the required actions.",
+        reply_markup=get_subscribe_keyboard()
+    )
+    return SUBSCRIBE
 
-    if is_owner(reddit_username):
-        update.message.reply_text("You are the owner. No need to check subscription.")
-    else:
-        # Check YouTube subscription status
-        is_subscribed = user_is_subscribed(user_id)
+# Handler for YouTube subscribe button
+def youtube_subscribe(update: Update, context: CallbackContext) -> int:
+    user_id = update.callback_query.from_user.id
+    logger.info(f"User {user_id} subscribed to the YouTube channel.")
+    
+    # Store the subscription in the database
+    cursor.execute('INSERT INTO subscriptions (user_id, channel_link) VALUES (?, ?)', (user_id, 'YOUR_YOUTUBE_CHANNEL_URL'))
+    conn.commit()
 
-        if is_subscribed:
-            update.message.reply_text("Thank you for subscribing! You can now use the bot.")
-        else:
-            update.message.reply_text("Please subscribe to our YouTube channel first.")
+    # Update last subscribe time for the user
+    last_subscribe_time[user_id] = time.time()
 
-# Telegram command handler - submit_channel
-def submit_channel(update: Update, context: CallbackContext):
-    user_id = update.message.from_user.id
-    reddit_username = update.message.from_user.username
+    # Update bot subscriptions
+    if user_id == OWNER_ID:
+        bot_subscriptions.add('YOUR_YOUTUBE_CHANNEL_URL')
 
-    if is_owner(reddit_username):
-        update.message.reply_text("You are the owner. No need to submit a channel.")
-    else:
-        update.message.reply_text("Please provide your YouTube channel link.")
+    update.callback_query.message.reply_text(
+        "Thank you for subscribing to my YouTube channel!\n"
+        "Now, please join my Telegram channel and group using the buttons below.",
+        reply_markup=get_join_keyboard()
+    )
+    return JOIN_CHANNEL
 
-        # Save the state to identify user and store their YouTube channel link
-        context.user_data['submitting_channel'] = 
-      True
+# Handler for Telegram channel join button
+def telegram_channel_join(update: Update, context: CallbackContext) -> int:
+    user_id = update.callback_query.from_user.id
+    logger.info(f"User {user_id} joined the Telegram channel.")
+    
+    # Check if the user is the owner
+    if user_id == OWNER_ID:
+        update.callback_query.message.reply_text("You are the owner. You cannot join the channel.")
+        return ConversationHandler.END
 
-# Telegram message handler - handle submitted channel link
-def handle_channel_link(update: Update, context: CallbackContext):
-    user_id = update.message.from_user.id
-    reddit_username = update.message.from_user.username
+    update.callback_query.message.reply_text(
+        "Great! You have joined my Telegram channel.\n"
+        "To proceed, please join my Telegram group as well using the button below.",
+        reply_markup=get_join_keyboard()
+    )
+    return JOIN_GROUP
 
-    if 'submitting_channel' in context.user_data:
-        channel_link = update.message.text
+# Handler for Telegram group join button
+def telegram_group_join(update: Update, context: CallbackContext) -> int:
+    user_id = update.callback_query.from_user.id
+    logger.info(f"User {user_id} joined the Telegram group.")
+    
+    # Check if the user is the owner
+    if user_id == OWNER_ID:
+        update.callback_query.message.reply_text("You are the owner. You cannot join the group.")
+        return ConversationHandler.END
 
-        # Store the submitted channel link in the database
-        user_channels[user_id] = {'link': channel_link, 'confirmed': False}
+    update.callback_query.message.reply_text(
+        "Awesome! You have successfully joined my Telegram group.\n"
+        "You are now eligible to use the bot.\n"
+        "Feel free to ask any questions or use any commands."
+    )
+    return ConversationHandler.END
 
-        # Ask the user to confirm their subscription
-        update.message.reply_text("Thank you! Your channel link has been recorded. Please confirm that you have subscribed by typing /confirm_subscription.")
-        del context.user_data['submitting_channel']
-    else:
-        update.message.reply_text("Sorry, I wasn't expecting a channel link at this time. If you want to submit your channel, use /submit_channel.")
+# Helper function to create inline keyboard for subscribing and joining
+def get_subscribe_keyboard() -> InlineKeyboardMarkup:
+    subscribe_url = "https://youtube.com/@mp4editor822"  # Replace with your YouTube channel URL
+    keyboard = [
+        [InlineKeyboardButton("Subscribe to YouTube Channel", callback_data='subscribe')],
+        [InlineKeyboardButton("Cancel", callback_data='cancel')]
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
-# Telegram command handler - confirm_subscription
-def confirm_subscription(update: Update, context: CallbackContext):
-    user_id = update.message.from_user.id
+def get_join_keyboard() -> InlineKeyboardMarkup:
+    channel_url = "https://t.me/teletechbots"  # Replace with your Telegram channel URL
+    group_url = "https://t.me/teletechbotsdiscussion_group"  # Replace with your Telegram group URL
+    keyboard = [
+        [InlineKeyboardButton("Join Telegram Channel", callback_data='join_channel')],
+        [InlineKeyboardButton("Join Telegram Group", callback_data='join_group')],
+        [InlineKeyboardButton("Cancel", callback_data='cancel')]
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
-    if user_id in user_channels and not user_channels[user_id]['confirmed']:
-        # Check if the user has confirmed their subscription
-        if user_is_subscribed(user_id):
-            user_channels[user_id]['confirmed'] = True
-            update.message.reply_text("Thank you for confirming your subscription! You can now use the bot.")
-        else:
-            update.message.reply_text("Please confirm your subscription by subscribing to our YouTube channel.")
-    else:
-        update.message.reply_text("You have already confirmed your subscription or haven't submitted your channel. Use /submit_channel to submit your channel.")
+# Handler for /cancel command
+def cancel(update: Update, context: CallbackContext) -> int:
+    user_id = update.callback_query.from_user.id
+    logger.info(f"User {user_id} cancelled the operation.")
+    update.callback_query.message.reply_text("Operation cancelled.")
+    return ConversationHandler.END
 
-# Telegram command handler - subscribe
-def subscribe(update: Update, context: CallbackContext):
-    user_id = update.message.from_user.id
-    reddit_username = update.message.from_user.username
+# Function to check for unsubscribed channels
+def check_unsubscribes(context: CallbackContext):
+    global bot_subscriptions
 
-    if is_owner(reddit_username):
-        update.message.reply_text("You are the owner. No need to subscribe to others.")
-    elif user_id in last_subscription_time and time.time() - last_subscription_time[user_id] < 20:
-        update.message.reply_text("Please wait for 20 seconds before subscribing to another channel.")
-    elif user_id in user_channels:
-        # Get the channel to subscribe to
-        channel_to_subscribe = user_channels[user_id]['link']
+    # Fetch all subscribed channels from the database
+    cursor.execute('SELECT DISTINCT channel_link FROM subscriptions WHERE user_id = ?', (OWNER_ID,))
+    user_subscriptions = set([channel[0] for channel in cursor.fetchall()])
 
-        # Subscribe to the selected channel
-        # You might want to add error handling here
-        # to handle cases where subscription fails
-        # For simplicity, the code assumes a successful subscription
+    # Check for unsubscribed channels
+    unsubscribed_channels = bot_subscriptions - user_subscriptions
 
-        # Inform the user about the delay
-        update.message.reply_text("Subscribing... Please note that YouTube may have restrictions on subscribing to channels too quickly. This process may take a moment.")
+    if unsubscribed_channels:
+        context.bot.send_message(OWNER_ID, f"Warning: You have unsubscribed from {', '.join(unsubscribed_channels)}! "
+                                           f"Please subscribe to them again.")
 
-        # Simulate the subscription process
-        # In a real bot, you would use the YouTube API to subscribe to the channel
-        time.sleep(5)  # Simulate the subscription process taking 5 seconds
+        # Block the user if not subscribed within 150 seconds
+        for channel in unsubscribed_channels:
+            if user_id not in blocked_users or (datetime.now() - blocked_users[user_id]).seconds > 150:
+                blocked_users[user_id] = datetime.now()
+                context.bot.send_message(user_id, f"You have 150 seconds to subscribe to {channel}.")
+                context.job_queue.run_once(unblock_user, 150, context=(context, user_id, channel))
 
-        # Update the last subscription time
-        last_subscription_time[user_id] = time.time()
+    # Update bot subscriptions
+    bot_subscriptions = user_subscriptions
 
-        # Acknowledge and continue
-        update.message.reply_text(f"Successfully subscribed to {channel_to_subscribe}! You can now use the bot.")
-    else:
-        update.message.reply_text("Please submit your channel using /submit_channel before subscribing to another channel.")
+# Function to unblock the user after the specified time
+def unblock_user(context: CallbackContext):
+    _, user_id, channel = context.job.context
 
-# ... (Other parts of your code)
+    if user_id in blocked_users:
+        del blocked_users[user_id]
 
-if __name__ == '__main__':
-    # Start both bots (Telegram and Reddit)
-    while True:
-        try:
-            run_reddit_bot()
-        except Exception as e:
-            print(f'Reddit bot error: {e}')
-            time.sleep(60)  # Sleep before retrying
-
-        main_telegram()
+        # Notify the owner about the blocke
