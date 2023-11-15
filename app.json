@@ -1,25 +1,26 @@
 {
-  "name": "Suborsubbot",
-  "description": "Hey there 👋 user.first_name I'm a suborsubbot. I can help you to increase your YouTube channel Subscriptions",
-  "repository": "https://github.com/ItzzTeletech/Suborsubbot",
-  "image": "heroku/python",
+  "name": "Your Telegram Bot",
+  "description": "Description of your Telegram bot",
+  "keywords": ["Telegram", "Bot"],
+  "repository": "https://github.com/your-username/your-private-repo.git",
+  "env": {
+    "YOUR_BOT_TOKEN": {
+      "description": "Your Telegram Bot token",
+      "required": true
+    },
+    "YOUR_OTHER_ENV_VARIABLE": {
+      "description": "Description of other environment variable",
+      "required": false
+    }
+  },
   "addons": [
-    "heroku-postgresql"
-    
+    // Add any necessary addons or services here
   ],
   "buildpacks": [
     {
-      "url": "heroku/python"
+      "url": "https://github.com/heroku/heroku-buildpack-python.git"
     }
   ],
   "scripts": {
     "postdeploy": "python bot.py"
-  },
-  "env": {
-    "TELEGRAM_TOKEN": {
-      "description": "6401687982:AAFb01-nccjXKa0dAmySwZ3YsDaZG3C6xEA",
-      "required": true
-    },
-    
-  }
   }
