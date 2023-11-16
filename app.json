@@ -1,20 +1,20 @@
 {
-  "name": "Your Telegram Bot",
-  "description": "Description of your Telegram bot",
+  "name": "SuborSub_bot",
+  "description": "Hi I am Sub or Sub bot. The powerful bot to Increase your YouTube channel Subscriptions",
   "keywords": ["Telegram", "Bot"],
-  "repository": "https://github.com/your-username/your-private-repo.git",
+  "repository": "https://github.com/ItzzTeletech/Suborsubbot",
   "env": {
-    "YOUR_BOT_TOKEN": {
-      "description": "Your Telegram Bot token",
+    "BOT_TOKEN": {
+      "description": "6401687982:AAFb01-nccjXKa0dAmySwZ3YsDaZG3C6xEA",
       "required": true
     },
-    "YOUR_OTHER_ENV_VARIABLE": {
-      "description": "Description of other environment variable",
-      "required": false
+    "ADMIN": {
+      "description": "1863367642",
+      "required": true
     }
   },
   "addons": [
-    // Add any necessary addons or services here
+    
   ],
   "buildpacks": [
     {
