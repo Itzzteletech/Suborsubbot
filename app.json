@@ -3,31 +3,53 @@
   "description": "Hi I am Sub or Sub bot. The powerful bot to Increase your YouTube channel Subscriptions",
   "keywords": ["Telegram", "Bot"],
   "repository": "https://github.com/ItzzTeletech/Suborsubbot",
-  "env": {
-    "BOT_TOKEN": {
-      "description": "6401687982:AAFb01-nccjXKa0dAmySwZ3YsDaZG3C6xEA",
-      "required": true
+      "env": {
+        "API_ID": {
+            "description": "Your APP ID From my.telegram.org ",
+            "value": ""
+        },
+        "API_HASH": {
+            "description": "Your API Hash From my.telegram.org ",
+            "value": ""
+        },
+        "WEBHOOK": {
+            "description": "if your server is need web service! value = True else value = False",
+            "value": "False"
+        },
+        "FORCE_SUB": {
+            "description": "Your force sub channel user name without [@] ",
+            "value": "",
+            "required": false 
+        },
+        "BOT_TOKEN": {
+            "description": "Your Bot Token From @BotFather",
+            "value": ""
+        },
+        "ADMIN": {
+            "description":"Add Your User ID multiple is use space to split"
+        },
+        "LOG_CHANNEL": {
+            "description":"Bot Log Sending Channel (just create a private channel and add bot to admin and take channel id to add this variable) ⚠️ id startswith -100 must",
+            "required": false           
+        },
+        "DB_URL": {
+            "description": "Your Mongo DB URL Obtained From mongodb.com",
+            "value": ""
+        },
+        "DB_NAME":{ 
+            "description":"Your Mongo DB Database Name ",
+            "value": "pyro-botz",
+            "required": false
+        },
+        "START_PIC": {
+            "description": "Your Bot start cmd Pic from @MT_TelegraPH_Bot",
+            "value": "",
+            "required": false
+        }
     },
-    "ADMIN": {
-      "description": "1863367642",
-      "required": true
-    },
-    "API_ID": {
-      "description": "",
-      "required": true
-    },
-    "API_HASH": {
-      "description": "",
-      "required" true
-  }
-  "addons": [
-    
-  ],
-  "buildpacks": [
-    {
-      "url": "https://github.com/heroku/heroku-buildpack-python.git"
-    }
-  ],
-  "scripts": {
-    "postdeploy": "python bot.py"
-  }
+    "buildpacks": [
+        {
+            "url": "heroku/python"
+        }
+    ]
+        }
