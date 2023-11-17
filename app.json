@@ -11,8 +11,15 @@
     "ADMIN": {
       "description": "1863367642",
       "required": true
-    }
-  },
+    },
+    "API_ID": {
+      "description": "",
+      "required": true
+    },
+    "API_HASH": {
+      "description": "",
+      "required" true
+  }
   "addons": [
     
   ],
