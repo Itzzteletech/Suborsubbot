@@ -1,5 +1,5 @@
+import os
 import logging
-import sqlite3
 import time
 from datetime import datetime, timedelta
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -13,24 +13,24 @@ from telegram.ext import (
     Filters,
 )
 
+from pymongo import MongoClient
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-TOKEN = "6401687982:AAFb01-nccjXKa0dAmySwZ3YsDaZG3C6xEA"
-OWNER_ID = 1863367642
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+OWNER_ID = int(os.getenv("OWNER_TELEGRAM_ID"))
+MONGO_URI = os.getenv("MONGODB_ATLAS_URI")
+DB_NAME = os.getenv("MONGODB_DB_NAME")
+COLLECTION_NAME = os.getenv("MONGODB_COLLECTION_NAME")
 
-conn = sqlite3.connect("subscriptions.db")
-cursor = conn.cursor()
-
-cursor.execute(
-    '''
-    CREATE TABLE IF NOT EXISTS subscriptions (
-        user_id INTEGER,
-        channel_link TEXT
-    )
-'''
-)
-conn.commit()
+client = MongoClient(MONGO_URI)
+db = client[DB_NAME]
+collection = db[COLLECTION_NAME]
 
 last_subscribe_time = {}
 bot_subscriptions = set()
@@ -57,9 +57,6 @@ def start(update: Update, context: CallbackContext) -> int:
 
 def youtube_subscribe(update: Update, context: CallbackContext) -> int:
     user_id = update.callback_query.from_user.id
-    cursor.execute('INSERT INTO subscriptions (user_id, channel_link) VALUES (?, ?)', (user_id, 'https://youtube.com/@Tele_Technics?si=t2eo5Tyb-cedQ9Yg'))
-    conn.commit()
-
     last_subscribe_time[user_id] = time.time()
 
     if user_id == OWNER_ID:
@@ -124,10 +121,7 @@ def cancel(update: Update, context: CallbackContext) -> int:
 def check_unsubscribes(context: CallbackContext):
     global bot_subscriptions
 
-    cursor.execute('SELECT DISTINCT channel_link FROM subscriptions WHERE user_id = ?', (OWNER_ID,))
-    user_subscriptions = set([channel[0] for channel in cursor.fetchall()])
-
-    unsubscribed_channels = bot_subscriptions - user_subscriptions
+    unsubscribed_channels = bot_subscriptions - set([channel[0] for channel in collection.distinct("channel_link")])
 
     if unsubscribed_channels:
         unsubscribed_channels = [channel for channel in unsubscribed_channels if channel not in blocked_users.values()]
@@ -153,7 +147,7 @@ def check_unsubscribes(context: CallbackContext):
                             unblock_user, 150, context=(context, user_id, channel)
                         )
 
-    bot_subscriptions = user_subscriptions
+    bot_subscriptions = set(collection.distinct("channel_link"))
 
 def unblock_user(context: CallbackContext):
     _, user_id, channel = context.job.context
@@ -172,4 +166,6 @@ def broadcast(update: Update, context: CallbackContext) -> None:
     for user_id in bot_subscriptions:
         context.bot.send_message(user_id, message_text)
 
-def unblock_user_command(update: Update, context: CallbackContext
+def unblock_user_command(update: Update, context: CallbackContext):
+    # Implement unblock_user_command logic here
+    pass
