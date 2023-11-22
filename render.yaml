@@ -1,11 +1,31 @@
 services:
-  - name: your-telegram-bot
-    env:
-      - key: YOUR_BOT_TOKEN
-        from: secret
-      - key: YOUR_OTHER_ENV_VARIABLE
-        value: "your-value"
-    buildCommand: python bot.py
-    source: https://github.com/your-username/your-private-repo.git
+  - type: web
+    plan: free
+    name: Suborsubbot
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    repo: https://github.com/Itzzteletech/Suborsubbot.git
     branch: main
-    type: pytho
+    autoDeploy: false
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: API_ID
+        sync: false
+      - key: API_HASH
+        sync: false
+      - key: FORCE_SUB
+        sync: false
+      - key: LOG_CHANNEL
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_URL
+        sync: false
+      - key: START_PIC
+        sync: false
+      - key: ADMIN
+        sync: false
+      - key: WEBHOOK
+        sync: false
