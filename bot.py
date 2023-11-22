@@ -2,6 +2,7 @@ import os
 import logging
 import time
 from datetime import datetime, timedelta
+from pymongo import MongoClient
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     Updater,
@@ -11,9 +12,8 @@ from telegram.ext import (
     CallbackQueryHandler,
     MessageHandler,
     Filters,
+    InlineQueryHandler,
 )
-
-from pymongo import MongoClient
 
 from dotenv import load_dotenv
 
@@ -36,23 +36,23 @@ last_subscribe_time = {}
 bot_subscriptions = set()
 blocked_users = {}
 
-START, SUBSCRIBE, JOIN_CHANNEL, JOIN_GROUP = range(4)
+START, SUBSCRIBE, JOIN_CHANNEL, JOIN_GROUP, ASK_LOGO, ASK_CHANNEL_LINK, VIEW_OTHER_CHANNELS = range(7)
 
 def start(update: Update, context: CallbackContext) -> int:
     user_id = update.message.from_user.id
-    if user_id == OWNER_ID:
-        update.message.reply_text("You are the owner. You cannot subscribe.")
-        return ConversationHandler.END
+    user_first_name = update.message.from_user.first_name
 
-    if user_id not in bot_subscriptions:
-        update.message.reply_text("Please subscribe to the bot first before starting.")
-        return ConversationHandler.END
+    # Welcome message with a start picture
+    start_photo_file_id = "http://ddl.safone.dev/1508558/None?hash=AgADBb" # Replace with your start photo file ID
+    context.bot.send_photo(chat_id=user_id, photo=start_photo_file_id, caption=f"Welcome, {user_first_name}! Thank you for using me. I'm Suborsubbot the powerful telegram bot to increase your YouTube channel Subscriptions. Any doubt send /help.")
 
+    # Asking the user to subscribe and join
     update.message.reply_text(
-        "Welcome to the bot! To continue, you need to subscribe to my YouTube channel and join my Telegram channel and group.\n"
+        "To get started, you must subscribe to my YouTube channel and join my Telegram channel and group.\n"
         "Click the buttons below to perform the required actions.",
         reply_markup=get_subscribe_keyboard(),
     )
+
     return SUBSCRIBE
 
 def youtube_subscribe(update: Update, context: CallbackContext) -> int:
@@ -60,7 +60,7 @@ def youtube_subscribe(update: Update, context: CallbackContext) -> int:
     last_subscribe_time[user_id] = time.time()
 
     if user_id == OWNER_ID:
-        bot_subscriptions.add('https://youtube.com/@Tele_Technics?si=t2eo5Tyb-cedQ9Yg')
+        bot_subscriptions.add('https://youtube.com/@Tele_Technics')
 
     update.callback_query.message.reply_text(
         "Thank you for subscribing to my YouTube channel!\n"
@@ -118,54 +118,54 @@ def cancel(update: Update, context: CallbackContext) -> int:
     update.callback_query.message.reply_text("Operation cancelled.")
     return ConversationHandler.END
 
-def check_unsubscribes(context: CallbackContext):
-    global bot_subscriptions
-
-    unsubscribed_channels = bot_subscriptions - set([channel[0] for channel in collection.distinct("channel_link")])
-
-    if unsubscribed_channels:
-        unsubscribed_channels = [channel for channel in unsubscribed_channels if channel not in blocked_users.values()]
-
-        if unsubscribed_channels:
-            context.bot.send_message(
-                OWNER_ID,
-                f"Warning: You have unsubscribed from {', '.join(unsubscribed_channels)}! "
-                f"Please subscribe to them again.",
-            )
-
-            for channel in unsubscribed_channels:
-                for user_id, blocked_channel in blocked_users.items():
-                    if (
-                        blocked_channel == channel
-                        and (datetime.now() - blocked_users[user_id]).seconds > 150
-                    ):
-                        blocked_users[user_id] = datetime.now()
-                        context.bot.send_message(
-                            user_id, f"You have 150 seconds to subscribe to {channel}."
-                        )
-                        context.job_queue.run_once(
-                            unblock_user, 150, context=(context, user_id, channel)
-                        )
-
-    bot_subscriptions = set(collection.distinct("channel_link"))
-
-def unblock_user(context: CallbackContext):
-    _, user_id, channel = context.job.context
-
-    if user_id in blocked_users:
-        del blocked_users[user_id]
-
-def broadcast(update: Update, context: CallbackContext) -> None:
+def ask_logo(update: Update, context: CallbackContext) -> int:
     user_id = update.message.from_user.id
-    if user_id != OWNER_ID:
-        update.message.reply_text("You are not authorized to use this command.")
-        return
+    update.message.reply_text("Great! Now, please share your YouTube channel logo with me.")
+    return ASK_LOGO
 
-    message_text = update.message.text.split('/broadcast ', 1)[1]
+def receive_logo(update: Update, context: CallbackContext) -> int:
+    user_id = update.message.from_user.id
+    logo_file_id = update.message.photo[-1].file_id
+    context.user_data['logo_file_id'] = logo_file_id
+    update.message.reply_text("Thank you for sharing your YouTube channel logo! Now, please provide your YouTube channel link.")
+    return ASK_CHANNEL_LINK
 
-    for user_id in bot_subscriptions:
-        context.bot.send_message(user_id, message_text)
+def ask_channel_link(update: Update, context: CallbackContext) -> int:
+    user_id = update.message.from_user.id
+    update.message.reply_text(
+        "Please provide your YouTube channel link. Remember, don't just copy from YouTube. Write a unique description for your channel."
+        "\n\nExample: `https://youtube.com/c/YourChannelName`"
+    )
+    return ASK_CHANNEL_LINK
 
-def unblock_user_command(update: Update, context: CallbackContext):
-    # Implement unblock_user_command logic here
-    pass
+def receive_channel_link(update: Update, context: CallbackContext) -> int:
+    user_id = update.message.from_user.id
+    channel_link = update.message.text.strip()
+    logo_file_id = context.user_data.get('logo_file_id', None)
+
+    # Store the logo file ID and channel link in the database
+    collection.update_one(
+        {'user_id': user_id},
+        {'$set': {'logo_file_id': logo_file_id, 'channel_link': channel_link}},
+        upsert=True
+    )
+
+    update.message.reply_text("Thank you! Your YouTube channel information has been stored.")
+    return ConversationHandler.END
+
+def view_other_channels(update: Update, context: CallbackContext) -> None:
+    user_id = update.callback_query.from_user.id
+
+    # Get other channels' information from the database
+    other_channels = collection.find({'user_id': {'$ne': user_id}}, {'logo_file_id': 1, 'channel_link': 1})
+
+    keyboard = []
+
+    for channel in other_channels:
+        keyboard.append([InlineKeyboardButton(channel['channel_link'], callback_data=f"view_channel_{channel['_id']}")])
+
+    keyboard.append([InlineKeyboardButton("Close", callback_data="close_subscribe")])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    update.callback_query.message.reply_text("Here are other channels:", reply_markup=
