@@ -1,4 +1,4 @@
-FROM python:3.8
+FROM python:3.12
 
 WORKDIR /usr/src/app
 
@@ -13,4 +13,4 @@ ENV MONGODB_ATLAS_URI=mongodb+srv://Itzzteletech:Devaismadman@cluster0.ehgdefs.m
 
 ENV TELEGRAM_BOT_TOKEN=6401687982:AAFb01-nccjXKa0dAmySwZ3YsDaZG3C6xEA
 
-CMD ["python", "your_bot_script.py"
+CMD ["python", "bot.py"
